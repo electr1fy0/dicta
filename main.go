@@ -60,7 +60,7 @@ var meaningCmd = &cobra.Command{
 		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
-			log.Fatalf("Word not found or API error: %s", resp.Status)
+			log.Fatalf("Word not found or API error, idk: %s", resp.Status)
 		}
 
 		data, err := io.ReadAll(resp.Body)
@@ -69,7 +69,7 @@ var meaningCmd = &cobra.Command{
 		}
 
 		var wordData []Word
-		if err := json.Unmarshal(data, &wordData); err != nil {
+		if err := json.Unmarshal(data, &wordData); err != nil || len(wordData) == 0 {
 			log.Fatal("Failed to parse API response:", err)
 		}
 
