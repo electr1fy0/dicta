@@ -10,6 +10,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 const (
@@ -19,7 +21,6 @@ const (
 	maxWidth       = 100
 )
 
-// API response types
 type Word struct {
 	Word      string     `json:"word"`
 	Phonetics []Phonetic `json:"phonetics"`
@@ -43,7 +44,6 @@ type Definition struct {
 	Antonyms []string `json:"antonyms,omitempty"`
 }
 
-// Styles
 var (
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -118,8 +118,8 @@ func truncateSlice(s []string, max int) []string {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println(errorStyle.Render("Usage: lookup <word>"))
-		fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("246")).Render("Example: lookup serendipity"))
+		fmt.Println(errorStyle.Render("Usage: dicta <word>"))
+		fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("246")).Render("Example: dicta serendipity"))
 		os.Exit(1)
 	}
 
@@ -156,11 +156,10 @@ func main() {
 func renderWord(w Word) {
 	var content strings.Builder
 
-	// Title with word
-	content.WriteString(titleStyle.Render(strings.Title(w.Word)))
+	titleCaser := cases.Title(language.English)
+	content.WriteString(titleStyle.Render(titleCaser.String(w.Word)))
 	content.WriteString("\n")
 
-	// Phonetics
 	if len(w.Phonetics) > 0 {
 		var phonetics []string
 		seen := make(map[string]bool)
@@ -218,7 +217,7 @@ func renderWord(w Word) {
 	content.WriteString(footerStyle.Render("source: api.dictionaryapi.dev"))
 
 	width := getTerminalWidth()
-	// Account for border (2) and padding (4)
+
 	styledBox := boxStyle.Width(width - 6)
 	fmt.Println(styledBox.Render(content.String()))
 }

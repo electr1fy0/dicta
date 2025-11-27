@@ -1,4 +1,4 @@
-# lookup
+# dicta
 
 A stylish command-line dictionary tool that fetches definitions, pronunciations, and examples.
 
@@ -6,7 +6,7 @@ This is a fork of [dicta](https://github.com/electr1fy0/dicta) by electr1fy0 - t
 
 ## What's Different
 
-- **Simplified usage** - just `lookup <word>` instead of `dicta meaning <word>`
+- **Simplified usage** - just `dicta <word>` instead of `dicta meaning <word>`
 - **Glamorous output** - styled with [Lipgloss](https://github.com/charmbracelet/lipgloss) featuring colors, borders, and clean formatting
 - **Streamlined display** - limits to 3 definitions per part of speech, deduplicates phonetics
 
@@ -15,17 +15,17 @@ This is a fork of [dicta](https://github.com/electr1fy0/dicta) by electr1fy0 - t
 ### From source
 
 ```bash
-git clone https://github.com/mkaz/lookup.git
-cd lookup
-go build -o lookup
+git clone https://github.com/mkaz/dicta.git
+cd dicta
+go build -o dicta
 ```
 
 ## Usage
 
 ```bash
-lookup serendipity
-lookup ephemeral
-lookup hello
+dicta serendipity
+dicta ephemeral
+dicta hello
 ```
 
 **Output includes:**
