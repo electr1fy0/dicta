@@ -2,20 +2,13 @@
 
 A stylish command-line dictionary tool that fetches definitions, pronunciations, and examples.
 
-This is a fork of [dicta](https://github.com/electr1fy0/dicta) by electr1fy0 - thanks for the original implementation!
-
-## What's Different
-
-- **Simplified usage** - just `dicta <word>` instead of `dicta meaning <word>`
-- **Glamorous output** - styled with [Lipgloss](https://github.com/charmbracelet/lipgloss) featuring colors, borders, and clean formatting
-- **Streamlined display** - limits to 3 definitions per part of speech, deduplicates phonetics
 
 ## Install
 
 ### From source
 
 ```bash
-git clone https://github.com/mkaz/dicta.git
+git clone https://github.com/electr1fy0/dicta.git
 cd dicta
 go build -o dicta
 ```
