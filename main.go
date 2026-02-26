@@ -271,7 +271,7 @@ func renderWord(w Word) {
 	content.WriteString(footerStyle.Render("source: api.dictionaryapi.dev"))
 
 	width := getTerminalWidth()
-	width = min(width, minBoxWidth)
+	width = max(width, minBoxWidth)
 
 	styledBox := boxStyle.Width(width - 6)
 	fmt.Println(styledBox.Render(content.String()))
