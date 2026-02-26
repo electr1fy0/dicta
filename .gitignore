@@ -1,3 +1,5 @@
 
 # ignore binary when built
 /dicta
+# Added by goreleaser init:
+dist/
