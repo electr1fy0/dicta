@@ -2,13 +2,17 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/spf13/cobra"
 	"golang.org/x/term"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -19,6 +23,8 @@ const (
 	maxDefinitions = 3
 	maxTerms       = 5
 	maxWidth       = 100
+	minBoxWidth    = 40
+	requestTimeout = 8 * time.Second
 )
 
 type Word struct {
@@ -44,57 +50,68 @@ type Definition struct {
 	Antonyms []string `json:"antonyms,omitempty"`
 }
 
+type APIError struct {
+	Title   string `json:"title"`
+	Message string `json:"message"`
+}
+
 var (
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("212")).
-			Background(lipgloss.Color("57")).
+			Foreground(lipgloss.AdaptiveColor{Light: "233", Dark: "212"}).
+			Background(lipgloss.AdaptiveColor{Light: "153", Dark: "57"}).
 			Padding(0, 2).
 			MarginBottom(1)
 
 	phoneticStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("246")).
+			Foreground(lipgloss.AdaptiveColor{Light: "239", Dark: "246"}).
 			Italic(true)
 
 	partOfSpeechStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("205")).
+				Foreground(lipgloss.AdaptiveColor{Light: "125", Dark: "205"}).
 				MarginTop(1)
 
 	definitionNumStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("39")).
+				Foreground(lipgloss.AdaptiveColor{Light: "25", Dark: "39"}).
 				Bold(true)
 
 	definitionStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("255"))
+			Foreground(lipgloss.AdaptiveColor{Light: "234", Dark: "255"})
 
 	exampleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("243")).
+			Foreground(lipgloss.AdaptiveColor{Light: "241", Dark: "243"}).
 			Italic(true).
 			PaddingLeft(3)
 
 	synonymStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("114"))
+			Foreground(lipgloss.AdaptiveColor{Light: "28", Dark: "114"})
 
 	antonymStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("203"))
+			Foreground(lipgloss.AdaptiveColor{Light: "160", Dark: "203"})
 
 	labelStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
+			Foreground(lipgloss.AdaptiveColor{Light: "238", Dark: "240"}).
 			Bold(true)
 
 	footerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
+			Foreground(lipgloss.AdaptiveColor{Light: "240", Dark: "241"}).
 			Italic(true).
 			MarginTop(1)
 
 	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("196")).
+			Foreground(lipgloss.AdaptiveColor{Light: "124", Dark: "196"}).
 			Bold(true)
+
+	hintStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "239", Dark: "246"})
+
+	moreStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "238", Dark: "240"})
 
 	boxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("63")).
+			BorderForeground(lipgloss.AdaptiveColor{Light: "67", Dark: "63"}).
 			Padding(1, 2)
 )
 
@@ -116,41 +133,79 @@ func truncateSlice(s []string, max int) []string {
 	return s
 }
 
-func main() {
-	if len(os.Args) < 2 {
-		fmt.Println(errorStyle.Render("Usage: dicta <word>"))
-		fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("246")).Render("Example: dicta serendipity"))
-		os.Exit(1)
-	}
+func inputWord(args []string) string {
+	return strings.TrimSpace(strings.Join(args, " "))
+}
 
-	word := os.Args[1]
-
-	resp, err := http.Get(apiURL + word)
+func fetchWordData(client *http.Client, word string) (Word, error) {
+	reqURL := apiURL + url.QueryEscape(word)
+	resp, err := client.Get(reqURL)
 	if err != nil {
-		fmt.Println(errorStyle.Render("Failed to fetch word: " + err.Error()))
-		os.Exit(1)
+		return Word{}, fmt.Errorf("failed to fetch word: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		fmt.Println(errorStyle.Render("Word not found"))
-		os.Exit(1)
-	}
-
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println(errorStyle.Render(err.Error()))
-		os.Exit(1)
+		return Word{}, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		var apiErr APIError
+		if err := json.Unmarshal(data, &apiErr); err == nil && apiErr.Message != "" {
+			return Word{}, errors.New(apiErr.Message)
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			return Word{}, errors.New("word not found")
+		}
+		return Word{}, fmt.Errorf("dictionary API returned status %d", resp.StatusCode)
 	}
 
 	var wordData []Word
 	if err := json.Unmarshal(data, &wordData); err != nil || len(wordData) == 0 {
-		fmt.Println(errorStyle.Render("Failed to parse API response"))
-		os.Exit(1)
+		return Word{}, errors.New("failed to parse API response")
+	}
+	return wordData[0], nil
+}
+
+func main() {
+	rootCmd := &cobra.Command{
+		Use:   "dicta <word>",
+		Short: "A stylish command-line dictionary",
+		Long:  "A stylish command-line dictionary that fetches definitions, pronunciations, and examples.",
+		Example: strings.Join([]string{
+			"dicta serendipity",
+			"dicta ephemeral",
+			`dicta "ice cream"`,
+		}, "\n"),
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			word := inputWord(args)
+			if word == "" {
+				return errors.New("please provide a word")
+			}
+
+			httpClient := &http.Client{Timeout: requestTimeout}
+			w, err := fetchWordData(httpClient, word)
+			if err != nil {
+				return err
+			}
+			renderWord(w)
+			return nil
+		},
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
-	w := wordData[0]
-	renderWord(w)
+	rootCmd.SetErrPrefix("")
+	rootCmd.SetOut(os.Stdout)
+	rootCmd.SetErr(os.Stderr)
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, errorStyle.Render(err.Error()))
+		fmt.Fprintln(os.Stderr, hintStyle.Render("Example: dicta serendipity"))
+		os.Exit(1)
+	}
 }
 
 func renderWord(w Word) {
@@ -184,7 +239,6 @@ func renderWord(w Word) {
 			if j >= maxDefinitions {
 				remaining := len(m.Definitions) - maxDefinitions
 				if remaining > 0 {
-					moreStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 					content.WriteString(moreStyle.Render(fmt.Sprintf("  ... and %d more\n", remaining)))
 				}
 				break
@@ -217,6 +271,9 @@ func renderWord(w Word) {
 	content.WriteString(footerStyle.Render("source: api.dictionaryapi.dev"))
 
 	width := getTerminalWidth()
+	if width < minBoxWidth {
+		width = minBoxWidth
+	}
 
 	styledBox := boxStyle.Width(width - 6)
 	fmt.Println(styledBox.Render(content.String()))
