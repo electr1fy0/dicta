@@ -246,7 +246,7 @@ func renderWord(w Word) {
 
 			num := definitionNumStyle.Render(fmt.Sprintf("%d.", j+1))
 			def := definitionStyle.Render(d.Def)
-			content.WriteString(fmt.Sprintf("  %s %s\n", num, def))
+			fmt.Fprintf(&content, "  %s %s\n", num, def)
 
 			if d.Example != "" {
 				content.WriteString(exampleStyle.Render("\""+d.Example+"\"") + "\n")
@@ -254,16 +254,16 @@ func renderWord(w Word) {
 
 			if len(d.Synonyms) > 0 {
 				syns := truncateSlice(d.Synonyms, maxTerms)
-				content.WriteString(fmt.Sprintf("     %s %s\n",
+				fmt.Fprintf(&content, "     %s %s\n",
 					labelStyle.Render("syn:"),
-					synonymStyle.Render(strings.Join(syns, ", "))))
+					synonymStyle.Render(strings.Join(syns, ", ")))
 			}
 
 			if len(d.Antonyms) > 0 {
 				ants := truncateSlice(d.Antonyms, maxTerms)
-				content.WriteString(fmt.Sprintf("     %s %s\n",
+				fmt.Fprintf(&content, "     %s %s\n",
 					labelStyle.Render("ant:"),
-					antonymStyle.Render(strings.Join(ants, ", "))))
+					antonymStyle.Render(strings.Join(ants, ", ")))
 			}
 		}
 	}
@@ -271,9 +271,7 @@ func renderWord(w Word) {
 	content.WriteString(footerStyle.Render("source: api.dictionaryapi.dev"))
 
 	width := getTerminalWidth()
-	if width < minBoxWidth {
-		width = minBoxWidth
-	}
+	width = min(width, minBoxWidth)
 
 	styledBox := boxStyle.Width(width - 6)
 	fmt.Println(styledBox.Render(content.String()))
